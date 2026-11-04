@@ -29,3 +29,6 @@ desktop.ini
 # 日志与临时文件
 *.log
 *.tmp
+
+# 自检脚本的产物
+out_test.xlsx

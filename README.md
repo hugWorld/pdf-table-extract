@@ -1,6 +1,8 @@
 # 表格提取 extractTab
 
-把 PDF 里的表格提取成 Excel。双击 `extractTab.exe` 就能用，不用安装。
+把 PDF 里的表格提取成 Excel。Windows 桌面小工具，不用安装，双击即用。
+
+> 本仓库放的是**源码**，不含编译好的 exe。可执行文件请到 [Releases](../../releases) 下载，或按下面的「从源码运行」自行构建。
 
 ## 怎么用
 
@@ -24,6 +26,48 @@
 还有一类是整段字符映射错位，比如负号变成 `{`、小数点变成 `:`。这种没法可靠地自动纠正，程序会**保留原样并标黄**，不会自作主张改成看着像的数字。
 
 **标黄的格子请对照原文核一眼再用。** 尤其是要拿去算平均值、画图的时候。
+
+## 从源码运行
+
+需要 Python 3.9 以上：
+
+```bash
+pip install -r requirements.txt
+python main.py
+```
+
+打包成单个 exe：
+
+```bash
+pip install pyinstaller
+pyinstaller extractTab.spec
+```
+
+产物是 `dist/extractTab.exe`，约 100MB——PyMuPDF、openpyxl 和 Python 运行时都塞在里面了。
+
+自检脚本会把某个目录下的 PDF 全部跑一遍（提取 → 打印统计 → 导出 Excel），用来确认改动没有破坏解析：
+
+```bash
+mkdir samples && cp 你的测试.pdf samples/
+python verify.py
+```
+
+仓库里**没有**附带测试 PDF，`samples/` 已在 `.gitignore` 中排除。
+
+## 项目结构
+
+```
+main.py              启动入口
+extracttab/
+  core.py            表格识别与单元格清洗（± 号还原、错位字符检测）
+  export.py          导出 Excel：目录页、批注、可疑值标黄
+  api.py             前端 JS 与 Python 之间的桥接
+  gui.py             窗口初始化
+  ui.html            界面（HTML/CSS/JS）
+extractTab.spec      PyInstaller 打包配置
+app.ico              程序图标
+verify.py            解析自检脚本
+```
 
 ## 其他
 
