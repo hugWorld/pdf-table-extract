@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>表格提取</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --panel: #fafaf8;
+    --line: #e8e6e0;
+    --line-soft: #f0eee9;
+    --text: #26262a;
+    --muted: #78766f;
+    --accent: #534ab7;
+    --accent-dark: #3c3489;
+    --accent-soft: #eeedfe;
+    --warn-bg: #fdf5e3;
+    --warn-line: #e0b85c;
+    --warn-text: #8a5a00;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    font-family: "Microsoft YaHei UI", "Microsoft YaHei", -apple-system, sans-serif;
+    font-size: 13px; color: var(--text); background: var(--bg);
+    -webkit-user-select: none; user-select: none; overflow: hidden;
+  }
+  .app { display: flex; flex-direction: column; height: 100%; }
+
+  header {
+    height: 50px; flex: 0 0 50px;
+    display: flex; align-items: center; gap: 10px;
+    padding: 0 16px; border-bottom: 1px solid var(--line);
+  }
+  .logo {
+    width: 18px; height: 22px; border-radius: 3px;
+    border: 1.5px solid var(--accent); position: relative; flex: 0 0 auto;
+  }
+  .logo::after {
+    content: ""; position: absolute; left: 3px; right: 3px; top: 5px; height: 1.5px;
+    background: var(--accent); box-shadow: 0 4px 0 var(--accent), 0 8px 0 var(--accent);
+    opacity: .45;
+  }
+  h1 { font-size: 13px; font-weight: 600; margin: 0; letter-spacing: .2px; }
+  .sub { color: var(--muted); font-size: 12px; }
+  .spacer { flex: 1; }
+  .count { color: var(--muted); font-size: 12px; margin-right: 4px; }
+
+  .btn {
+    border: 1px solid var(--line); background: #fff; color: var(--text);
+    border-radius: 6px; padding: 6px 12px; font-size: 12px;
+    font-family: inherit; cursor: pointer; transition: .12s;
+  }
+  .btn:hover { border-color: #cfccc3; background: #fbfbfa; }
+  .btn:active { background: #f4f3ef; }
+  .btn.primary {
+    background: var(--accent); border-color: var(--accent); color: #fff;
+    font-weight: 600; padding: 7px 16px;
+  }
+  .btn.primary:hover { background: var(--accent-dark); border-color: var(--accent-dark); }
+  .btn.primary:disabled, .btn:disabled { opacity: .45; cursor: default; }
+
+  main { flex: 1; display: flex; min-height: 0; }
+
+  aside {
+    width: 208px; flex: 0 0 208px; border-right: 1px solid var(--line);
+    background: var(--panel); display: flex; flex-direction: column; padding: 12px;
+  }
+  .drop {
+    border: 1px dashed #c9c5f0; background: var(--accent-soft);
+    border-radius: 8px; padding: 16px 8px; text-align: center;
+    cursor: pointer; transition: .15s; margin-bottom: 14px;
+  }
+  .drop:hover, .drop.hot { background: #e5e3fc; border-color: var(--accent); }
+  .drop b { display: block; color: var(--accent-dark); font-size: 12px; font-weight: 600; }
+  .drop span { display: block; color: #8b86d6; font-size: 11px; margin-top: 3px; }
+  .label { font-size: 11px; color: var(--muted); margin-bottom: 6px; letter-spacing: .3px; }
+  .files { overflow-y: auto; flex: 1; }
+  .file {
+    font-size: 12px; padding: 6px 8px; border-radius: 6px; margin-bottom: 3px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    color: var(--text); background: #fff; border: 1px solid var(--line-soft);
+  }
+
+  section { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+
+  .list { flex: 1; overflow-y: auto; padding: 10px 14px; min-height: 0; }
+  .row {
+    display: flex; align-items: center; gap: 9px;
+    padding: 8px 10px; border: 1px solid var(--line-soft); border-radius: 8px;
+    margin-bottom: 5px; cursor: pointer; background: #fff; transition: .1s;
+  }
+  .row:hover { border-color: #d8d5cc; }
+  .row.on { border-color: #c9c4ea; background: #fbfaff; }
+  .row.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+  .box {
+    width: 14px; height: 14px; border-radius: 3.5px; flex: 0 0 14px;
+    border: 1.5px solid #cdcac2; display: flex; align-items: center; justify-content: center;
+    background: #fff; transition: .1s;
+  }
+  .row.on .box { background: var(--accent); border-color: var(--accent); }
+  .box i {
+    width: 6px; height: 3px; margin-top: -2px;
+    border-left: 1.6px solid #fff; border-bottom: 1.6px solid #fff;
+    transform: rotate(-45deg); display: none;
+  }
+  .row.on .box i { display: block; }
+  .name { font-size: 12.5px; font-weight: 500; }
+  .meta { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .badge {
+    font-size: 11px; padding: 1px 7px; border-radius: 4px; flex: 0 0 auto;
+    background: var(--warn-bg); color: var(--warn-text); border: 1px solid #f0dcae;
+  }
+  .group { margin-bottom: 4px; }
+  .group-head {
+    display: flex; align-items: center; gap: 7px; padding: 7px 2px 5px;
+    font-size: 11px; font-weight: 500; color: var(--muted);
+  }
+  .group-head i {
+    width: 5px; height: 5px; border-radius: 50%; flex: 0 0 auto; background: #b6b0e0;
+  }
+  .group-head .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .group-head .cnt { margin-left: auto; font-weight: 400; color: #a5a29a; flex: 0 0 auto; }
+  .fname { font-size: 11px; color: #a5a29a; margin-left: auto; flex: 0 1 auto;
+           overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 40%; }
+
+  .preview {
+    flex: 0 0 42%; border-top: 1px solid var(--line);
+    display: flex; flex-direction: column; min-height: 0; background: var(--panel);
+  }
+  .preview-head {
+    padding: 8px 14px 6px; display: flex; align-items: center; gap: 8px; flex: 0 0 auto;
+  }
+  .preview-head .label { margin: 0; flex: 0 0 auto; }
+  .preview-head .src {
+    font-size: 11px; color: var(--muted); margin-left: 2px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 58%;
+  }
+  .hint { font-size: 11px; color: var(--warn-text); background: var(--warn-bg);
+          padding: 1px 7px; border-radius: 4px; border: 1px solid #f0dcae; }
+  .tbl-wrap { flex: 1; overflow: auto; padding: 0 14px 12px; min-height: 0; }
+  table { border-collapse: collapse; font-size: 11.5px; background: #fff; width: 100%; }
+  th, td {
+    border: 1px solid var(--line); padding: 4px 8px; text-align: left;
+    white-space: nowrap; max-width: 260px; overflow: hidden; text-overflow: ellipsis;
+  }
+  th {
+    background: #f4f3ef; font-weight: 600; position: sticky; top: 0; z-index: 1;
+    color: #4a4843;
+  }
+  td.sus { background: var(--warn-bg); }
+  tbody tr:hover td { background: #fbfbfa; }
+  tbody tr:hover td.sus { background: #fbf2dc; }
+
+  footer {
+    height: 52px; flex: 0 0 52px; display: flex; align-items: center; gap: 10px;
+    padding: 0 16px; border-top: 1px solid var(--line); background: #fff;
+  }
+  .chk { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 12px; }
+  .chk input { accent-color: var(--accent); width: 13px; height: 13px; cursor: pointer; }
+  .tip { font-size: 11px; color: var(--muted); }
+  .status { font-size: 12px; color: var(--muted); }
+  .status.ok { color: #2f7a4a; }
+
+  .empty {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    height: 100%; color: #b3b0a8; font-size: 12px; gap: 6px;
+  }
+  .empty b { font-size: 13px; font-weight: 500; color: #94918a; }
+  .spin {
+    width: 15px; height: 15px; border: 2px solid #ddd9d0; border-top-color: var(--accent);
+    border-radius: 50%; animation: r .7s linear infinite; display: inline-block;
+  }
+  @keyframes r { to { transform: rotate(360deg); } }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: #d9d6cd; border-radius: 5px; }
+  ::-webkit-scrollbar-thumb:hover { background: #c4c0b6; }
+  ::-webkit-scrollbar-track { background: transparent; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo"></div>
+    <h1>表格提取</h1>
+    <span class="sub">PDF → Excel</span>
+    <div class="spacer"></div>
+    <span class="count" id="count"></span>
+    <button class="btn" id="btnAdd">添加 PDF</button>
+  </header>
+
+  <main>
+    <aside>
+      <div class="drop" id="drop">
+        <b>拖入 PDF</b>
+        <span>或点击选择文件</span>
+      </div>
+      <div class="label">已加载</div>
+      <div class="files" id="files"></div>
+    </aside>
+
+    <section>
+      <div class="list" id="list">
+        <div class="empty">
+          <b>还没有加载文件</b>
+          <span>点右上角「添加 PDF」，或把文件拖到左侧</span>
+        </div>
+      </div>
+
+      <div class="preview">
+        <div class="preview-head">
+          <span class="label">预览</span>
+          <span class="src" id="pvSrc"></span>
+          <span class="hint" id="warnHint" style="display:none"></span>
+        </div>
+        <div class="tbl-wrap" id="pv">
+          <div class="empty"><span>选中左侧表格查看内容</span></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <label class="chk"><input type="checkbox" id="srcCol"><span>附来源列</span></label>
+    <span class="tip">每行带上文件名、页码、表号，方便汇总</span>
+    <div class="spacer"></div>
+    <span class="status" id="status"></span>
+    <button class="btn primary" id="btnExport" disabled>导出 Excel</button>
+  </footer>
+</div>
+
+<script>
+const state = { tables: [], files: [], picks: new Set(), sel: null, busy: false };
+const $ = id => document.getElementById(id);
+const api = () => window.pywebview?.api;
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+
+function rowHtml(t, showFile) {
+  const on = state.picks.has(t.uid) ? " on" : "";
+  const sel = state.sel === t.uid ? " sel" : "";
+  const badge = t.suspect ? `<span class="badge">${t.suspect} 处可疑</span>` : "";
+  const fname = showFile ? `<span class="fname">${esc(t.file)}</span>` : "";
+  return `<div class="row${on}${sel}" data-uid="${t.uid}">
+      <div class="box"><i></i></div>
+      <div style="min-width:0">
+        <div class="name">${esc(t.label)}</div>
+        <div class="meta">${t.cols} 列 × ${t.rows} 行 · 第 ${t.page} 页</div>
+      </div>
+      ${badge}
+      ${fname}
+    </div>`;
+}
+
+function renderList() {
+  const box = $("list");
+  if (!state.tables.length) {
+    box.innerHTML = '<div class="empty"><b>还没有加载文件</b><span>点右上角「添加 PDF」，或把文件拖到左侧</span></div>';
+    return;
+  }
+  if (state.files.length <= 1) {
+    box.innerHTML = state.tables.map(t => rowHtml(t, false)).join("");
+    updateCount();
+    return;
+  }
+  const groups = new Map();
+  for (const t of state.tables) {
+    if (!groups.has(t.file)) groups.set(t.file, []);
+    groups.get(t.file).push(t);
+  }
+  box.innerHTML = [...groups].map(([file, items]) => `
+    <div class="group">
+      <div class="group-head" title="${esc(file)}">
+        <i></i><span class="nm">${esc(file)}</span>
+        <span class="cnt">${items.length} 个表</span>
+      </div>
+      ${items.map(t => rowHtml(t, false)).join("")}
+    </div>`).join("");
+  updateCount();
+}
+
+function updateCount() {
+  const n = state.picks.size, total = state.tables.length;
+  $("count").textContent = total ? `${state.files.length} 个文件 · 检出 ${total} 个表格` : "";
+  $("btnExport").disabled = !n || state.busy;
+  $("btnExport").textContent = n ? `导出 Excel (${n})` : "导出 Excel";
+  updatePvSrc();
+}
+
+function updatePvSrc() {
+  const el = $("pvSrc");
+  if (!el) return;
+  const t = state.tables.find(x => x.uid === state.sel);
+  if (!t) { el.textContent = ""; return; }
+  el.textContent = state.files.length > 1 ? `${t.file} · ${t.label}` : t.label;
+}
+
+async function renderPreview(uid) {
+  const t = state.tables.find(x => x.uid === uid);
+  if (!t) return;
+  updatePvSrc();
+  const data = await api().preview(uid);
+  const rows = data.rows || [];
+  if (!rows.length) { $("pv").innerHTML = '<div class="empty"><span>没有内容</span></div>'; return; }
+  const head = rows[0].map((c, i) => `<th>${esc(c) || (i + 1)}</th>`).join("");
+  const body = rows.slice(1).map((r, ri) =>
+    "<tr>" + r.map((c, ci) => {
+      const sus = data.suspect?.[ri + 1]?.[ci] ? ' class="sus"' : "";
+      return `<td${sus}>${esc(c)}</td>`;
+    }).join("") + "</tr>").join("");
+  $("pv").innerHTML = `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+
+  const hint = $("warnHint");
+  if (t.suspect) {
+    hint.style.display = "";
+    hint.textContent = `${t.suspect} 处数值可能被 PDF 误编码，已标黄`;
+  } else {
+    hint.style.display = "none";
+  }
+}
+
+function renderFiles() {
+  $("files").innerHTML = state.files.map(f =>
+    `<div class="file" title="${esc(f)}">${esc(f)}</div>`).join("");
+}
+
+async function addFiles(paths) {
+  if (!paths || !paths.length || state.busy) return;
+  state.busy = true;
+  let added = 0, failed = 0;
+  try {
+    for (let i = 0; i < paths.length; i++) {
+      const p = paths[i];
+      const name = p.split(/[\\/]/).pop();
+      $("status").innerHTML = `<span class="spin"></span> 正在解析 ${i + 1}/${paths.length} · ${esc(name)}`;
+      let res;
+      try {
+        res = await api().load([p]);
+      } catch (e) {
+        failed++;
+        continue;
+      }
+      if (res.errors && res.errors.length) failed++;
+      if (!res.tables.length) continue;
+      state.tables.push(...res.tables);
+      if (!state.files.includes(name)) state.files.push(name);
+      res.tables.forEach(t => state.picks.add(t.uid));
+      added += res.tables.length;
+      renderFiles();
+      renderList();
+      if (!state.sel) {
+        state.sel = res.tables[0].uid;
+        renderList();
+        renderPreview(state.sel);
+      }
+    }
+    $("status").className = "status ok";
+    $("status").textContent = added
+      ? `已检出 ${added} 个表格` + (failed ? `，${failed} 个文件未能读取` : "")
+      : "没有找到可提取的表格";
+  } catch (e) {
+    $("status").textContent = "解析失败：" + e;
+  } finally {
+    state.busy = false;
+    updateCount();
+  }
+}
+
+$("list").addEventListener("click", async e => {
+  const row = e.target.closest(".row");
+  if (!row) return;
+  const uid = row.dataset.uid;
+  if (e.target.closest(".box")) {
+    state.picks.has(uid) ? state.picks.delete(uid) : state.picks.add(uid);
+    renderList();
+    return;
+  }
+  state.sel = uid;
+  renderList();
+  await renderPreview(uid);
+});
+
+$("btnAdd").addEventListener("click", async () => {
+  const paths = await api().pick_files();
+  addFiles(paths);
+});
+
+$("drop").addEventListener("click", () => $("btnAdd").click());
+
+async function handleDrop(e) {
+  e.preventDefault();
+  $("drop").classList.remove("hot");
+  const items = [...(e.dataTransfer?.files || [])];
+  const paths = items.map(f => f.path).filter(Boolean);
+  if (paths.length) return addFiles(paths);
+  const uri = e.dataTransfer?.getData("text/uri-list") || e.dataTransfer?.getData("text");
+  if (uri) {
+    const list = uri.split(/\r?\n/).filter(Boolean)
+      .map(u => decodeURIComponent(u.replace(/^file:\/\/\/?/, "")).replace(/\//g, "\\"))
+      .filter(p => /\.pdf$/i.test(p));
+    if (list.length) return addFiles(list);
+  }
+  $("status").textContent = "拖放没拿到文件路径，请用「添加 PDF」按钮";
+}
+
+["dragenter", "dragover"].forEach(ev =>
+  $("drop").addEventListener(ev, e => { e.preventDefault(); $("drop").classList.add("hot"); }));
+["dragleave", "drop"].forEach(ev =>
+  $("drop").addEventListener(ev, e => { e.preventDefault(); $("drop").classList.remove("hot"); }));
+$("drop").addEventListener("drop", handleDrop);
+window.addEventListener("dragover", e => e.preventDefault());
+window.addEventListener("drop", e => e.preventDefault());
+
+$("btnExport").addEventListener("click", async () => {
+  if (state.busy) return;
+  state.busy = true;
+  updateCount();
+  $("status").innerHTML = '<span class="spin"></span> 正在写入…';
+  try {
+    const res = await api().export([...state.picks], $("srcCol").checked);
+    if (res.ok) {
+      $("status").className = "status ok";
+      $("status").textContent = `已导出 ${res.count} 个表格` +
+        (res.flagged ? `，${res.flagged} 个含可疑数值` : "");
+      if (confirm(`已导出 ${res.count} 个表格到\n${res.path}\n\n是否打开文件？`)) {
+        api().open_path(res.path);
+      }
+    } else if (res.message) {
+      $("status").textContent = res.message;
+    } else {
+      $("status").textContent = "";
+    }
+  } catch (e) {
+    $("status").textContent = "导出失败：" + e;
+  } finally {
+    state.busy = false;
+    updateCount();
+  }
+});
+
+window.addEventListener("pywebviewready", () => {
+  $("status").textContent = "";
+  const pending = window.__pendingFiles;
+  if (pending && pending.length) addFiles(pending);
+});
+</script>
+</body>
+</html>
